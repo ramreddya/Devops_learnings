@@ -2,12 +2,10 @@ pipeline {
     agent any
 
     environment {
-        DOCKER_REGISTRY = 'your-docker-registry'
-        DOCKER_IMAGE_NAME = 'your-docker-image-name'
-        GITHUB_REPO = 'your-github-repo'
-        GITHUB_BRANCH = 'your-github-branch'
-        AWS_REGION = 'your-aws-region'
-        ECS_CLUSTER = 'your-ecs-cluster'
+        DOCKER_REGISTRY = 'https://hub.docker.com/'
+        DOCKER_IMAGE_NAME = 'spl'
+        AWS_REGION = 'us-east-1'
+        ECS_CLUSTER = 'sample'
         ECS_SERVICE = 'your-ecs-service'
         ECS_TASK_DEFINITION = 'your-ecs-task-definition'
     }
@@ -32,17 +30,16 @@ pipeline {
 	stage('Deploy to ECS') {
             steps {
                 script {
-                    def credentials = 'aws-creds'
-                    def awsAccountId = awsUtils.getAccountId(credentials)
-                    def ecrRepoUrl = "https://${awsAccountId}.dkr.ecr.${AWS_REGION}.amazonaws.com/${DOCKER_HUB_REPO}:${BUILD_NUMBER}"
-                    
-                    ecsUtils.withEcs(credentials, AWS_REGION) {
-                        sh "aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${awsAccountId}.dkr.ecr.${AWS_REGION}.amazonaws.com"
-                        sh "docker pull ${ecrRepoUrl}"
-                        sh "docker tag ${ecrRepoUrl} ${DOCKER_IMAGE_NAME}"
-                        sh "docker push ${DOCKER_IMAGE_NAME}"
-                        sh "aws ecs update-service --cluster ${AWS_ECS_CLUSTER} --service ${AWS_ECS_SERVICE} --force-new-deployment"
+                    withAWS(credentials: 'aws-creds', region: AWS_REGION) {
+                        ecsUpdateService(
+                            cluster: ECS_CLUSTER,
+                            service: ECS_SERVICE,
+                            taskDefinition: ECS_TASK_DEFINITION,
+                            image: "${DOCKER_REGISTRY}/my-image:${IMAGE_TAG}"
+                        )
                     }
                 }
             }
-        }	
+        }
+    }
+}
